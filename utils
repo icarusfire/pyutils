@@ -1,0 +1,39 @@
+def evp_bytes_to_key(password, salt, key_len, iv_len):
+    """
+    Derives the key and IV using OpenSSL's EVP_BytesToKey method.
+    """
+    password = password.encode('utf-8')
+    derived_data = b""
+    block = b""
+    while len(derived_data) < key_len + iv_len:
+        block = hashlib.md5(block + password + salt).digest()
+        derived_data += block
+    return derived_data[:key_len], derived_data[key_len:key_len+iv_len]
+
+def decrypt_file(input_file, output_file, secret_key="dummyKey"):
+    # Read the encrypted file
+    with open(input_file, 'rb') as f:
+        salt = f.read(8)  # Read the first 8 bytes as salt
+        assert salt.startswith(b"Salted__"), "Invalid salt format"
+        iv = f.read(16)  # Read the 16-byte IV (initialization vector)
+        ciphertext = f.read()  # Read the rest as ciphertext
+    
+    # Derive the key and IV using OpenSSL's EVP_BytesToKey method
+    key, iv = evp_bytes_to_key(secret_key, salt[8:], 32, 16)
+    
+    # Create the cipher object
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    
+    # Decrypt the ciphertext
+    decrypted_data = cipher.decrypt(ciphertext)
+    
+    # Unpad the decrypted data
+    try:
+        decrypted_data = unpad(decrypted_data, AES.block_size)
+    except ValueError as e:
+        print(f"Error during unpadding: {e}")
+        return
+    
+    # Write the decrypted data to the output file
+    with open(output_file, 'wb') as f:
+        f.write(decrypted_data)
