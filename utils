@@ -1,20 +1,11 @@
-def evp_bytes_to_key(password, salt, key_len, iv_len):
+def EVP_BytesToKey(password, salt, key_len, iv_len):
     """
-    Derives key and IV using OpenSSL's EVP_BytesToKey logic.
-    Uses MD5 as a hashing algorithm to mimic OpenSSL.
+    Derive the key and the IV from the given password and salt.
     """
-    # Concatenate password and salt, then hash it using MD5
-    data = password.encode() + salt
-    key_iv = b''
-    digest = b''
-    
-    # Repeatedly calculate MD5 hash to generate the required bytes for key + iv
-    while len(key_iv) < (key_len + iv_len):
-        digest = hashlib.md5(digest + data).digest()  # MD5 iteration
-        key_iv += digest  # Append the MD5 digest to key_iv
-    
-    # The first 'key_len' bytes are the key, the following 'iv_len' bytes are the IV
-    key = key_iv[:key_len]
-    iv = key_iv[key_len:key_len + iv_len]
-    
-    return key, iv
+    from hashlib import md5
+    dtot =  md5(password + salt).digest()
+    d = [ dtot ]
+    while len(dtot)<(iv_len+key_len):
+        d.append( md5(d[-1] + password + salt).digest() )
+        dtot += d[-1]
+    return dtot[:key_len], dtot[key_len:key_len+iv_len]
