@@ -1,3 +1,7 @@
+import hashlib
+from Crypto.Cipher import AES
+from Crypto.Util.Padding import unpad
+
 def evp_bytes_to_key(password, salt, key_len, iv_len):
     """
     Derives the key and IV using OpenSSL's EVP_BytesToKey method.
@@ -13,13 +17,19 @@ def evp_bytes_to_key(password, salt, key_len, iv_len):
 def decrypt_file(input_file, output_file, secret_key="dummyKey"):
     # Read the encrypted file
     with open(input_file, 'rb') as f:
-        salt = f.read(8)  # Read the first 8 bytes as salt
-        assert salt.startswith(b"Salted__"), "Invalid salt format"
-        iv = f.read(16)  # Read the 16-byte IV (initialization vector)
-        ciphertext = f.read()  # Read the rest as ciphertext
-    
-    # Derive the key and IV using OpenSSL's EVP_BytesToKey method
-    key, iv = evp_bytes_to_key(secret_key, salt[8:], 32, 16)
+        # Read the first 8 bytes for the salt header (includes "Salted__")
+        salt_header = f.read(8)
+        if not salt_header.startswith(b"Salted__"):
+            raise ValueError("Invalid salt format, expected 'Salted__' in the beginning")
+        
+        # Read the next 8 bytes as the actual salt (after 'Salted__')
+        salt = f.read(8)
+        
+        # Derive the key and IV using OpenSSL's EVP_BytesToKey method
+        key, iv = evp_bytes_to_key(secret_key, salt, 32, 16)
+        
+        # Read the ciphertext
+        ciphertext = f.read()
     
     # Create the cipher object
     cipher = AES.new(key, AES.MODE_CBC, iv)
@@ -37,3 +47,4 @@ def decrypt_file(input_file, output_file, secret_key="dummyKey"):
     # Write the decrypted data to the output file
     with open(output_file, 'wb') as f:
         f.write(decrypted_data)
+
